@@ -1,12 +1,8 @@
 data
-__pycache__
-src/.idea
 src/*.pyc
 src/.idea
 src/scribble*
 venv
 results
-env
-tags
-benchmarks
 samples
+__pycache__

@@ -4,9 +4,8 @@ import torch
 from EinsumNetwork import Graph, EinsumNetwork
 import datasets
 import utils
-import matplotlib.pyplot as plt
 
-device = 'cuda'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 ############################################################################
 fashion_mnist = True
