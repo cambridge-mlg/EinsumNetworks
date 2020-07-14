@@ -149,17 +149,17 @@ for epoch_count in range(num_epochs):
     einet.em_update()
 
 if fashion_mnist:
-    result_dir = '../demo_results/fashion_mnist/'
+    model_dir = '../models/einet/demo_fashion_mnist/'
+    samples_dir = '../samples/demo_fashion_mnist/'
 else:
-    result_dir = '../demo_results/mnist/'
-utils.mkdir_p(result_dir)
+    model_dir = '../models/einet/demo_mnist/'
+    samples_dir = '../samples/demo_mnist/'
+utils.mkdir_p(model_dir)
+utils.mkdir_p(samples_dir)
 
 #####################
 # draw some samples #
 #####################
-
-samples_dir = os.path.join(result_dir, "samples/")
-utils.mkdir_p(samples_dir)
 
 samples = einet.sample(num_samples=25).cpu().numpy()
 samples = samples.reshape((-1, 28, 28))
@@ -203,10 +203,10 @@ valid_ll_before = EinsumNetwork.eval_loglikelihood_batched(einet, valid_x, batch
 test_ll_before = EinsumNetwork.eval_loglikelihood_batched(einet, test_x, batch_size=batch_size)
 
 # save model
-graph_file = os.path.join(result_dir, "einet.pc")
+graph_file = os.path.join(model_dir, "einet.pc")
 Graph.write_gpickle(graph, graph_file)
 print("Saved PC graph to {}".format(graph_file))
-model_file = os.path.join(result_dir, "einet.mdl")
+model_file = os.path.join(model_dir, "einet.mdl")
 torch.save(einet, model_file)
 print("Saved model to {}".format(model_file))
 
