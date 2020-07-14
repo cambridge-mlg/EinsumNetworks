@@ -8,7 +8,7 @@ import utils
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 ############################################################################
-fashion_mnist = True
+fashion_mnist = False
 
 exponential_family = EinsumNetwork.BinomialArray
 # exponential_family = EinsumNetwork.CategoricalArray
@@ -49,9 +49,9 @@ if exponential_family == EinsumNetwork.NormalArray:
 
 # get data
 if fashion_mnist:
-    train_x, train_labels, test_x, test_labels = datasets.load_mnist()
-else:
     train_x, train_labels, test_x, test_labels = datasets.load_fashion_mnist()
+else:
+    train_x, train_labels, test_x, test_labels = datasets.load_mnist()
 
 if not exponential_family != EinsumNetwork.NormalArray:
     train_x /= 255.
@@ -140,7 +140,11 @@ for epoch_count in range(num_epochs):
 
 
 # Draw some samples
-samples_dir = os.path.join("../samples/demo_mnist/")
+if fashion_mnist:
+    samples_dir = os.path.join("../samples/demo_fashion_mnist/")
+else:
+    samples_dir = os.path.join("../samples/demo_mnist/")
+
 utils.mkdir_p(samples_dir)
 
 samples = einet.sample(num_samples=25).cpu().numpy()

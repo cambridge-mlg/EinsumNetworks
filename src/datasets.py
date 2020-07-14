@@ -80,7 +80,8 @@ def maybe_download_fashion_mnist():
                    't10k-labels-idx1-ubyte.gz']
 
     for file in mnist_files:
-        maybe_download('../data/fashion-mnist', 'http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/', file)
+        if not maybe_download('../data/fashion-mnist', 'http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/', file):
+            continue
         print('unzip ../data/fashion-mnist/{}'.format(file))
         filepath = os.path.join('../data/fashion-mnist/', file)
         with gzip.open(filepath, 'rb') as f_in:
