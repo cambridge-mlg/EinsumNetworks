@@ -1,6 +1,7 @@
 import numpy as np
 import networkx as nx
 from itertools import count
+from networkx import read_gpickle, write_gpickle
 
 
 class EiNetAddress:

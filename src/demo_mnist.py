@@ -148,13 +148,17 @@ for epoch_count in range(num_epochs):
 
     einet.em_update()
 
-
-# Draw some samples
 if fashion_mnist:
-    samples_dir = os.path.join("../samples/demo_fashion_mnist/")
+    result_dir = '../demo_results/fashion_mnist/'
 else:
-    samples_dir = os.path.join("../samples/demo_mnist/")
+    result_dir = '../demo_results/mnist/'
+utils.mkdir_p(result_dir)
 
+#####################
+# draw some samples #
+#####################
+
+samples_dir = os.path.join(result_dir, "samples/")
 utils.mkdir_p(samples_dir)
 
 samples = einet.sample(num_samples=25).cpu().numpy()
@@ -187,3 +191,41 @@ utils.save_image_stack(ground_truth, 5, 5, os.path.join(samples_dir, "ground_tru
 
 print()
 print('Saved samples to {}'.format(samples_dir))
+
+####################
+# save and re-load #
+####################
+
+# evaluate log-likelihoods
+einet.eval()
+train_ll_before = EinsumNetwork.eval_loglikelihood_batched(einet, train_x, batch_size=batch_size)
+valid_ll_before = EinsumNetwork.eval_loglikelihood_batched(einet, valid_x, batch_size=batch_size)
+test_ll_before = EinsumNetwork.eval_loglikelihood_batched(einet, test_x, batch_size=batch_size)
+
+# save model
+graph_file = os.path.join(result_dir, "einet.pc")
+Graph.write_gpickle(graph, graph_file)
+print("Saved PC graph to {}".format(graph_file))
+model_file = os.path.join(result_dir, "einet.mdl")
+torch.save(einet, model_file)
+print("Saved model to {}".format(model_file))
+
+del einet
+
+# reload model
+einet = torch.load(model_file)
+print("Loaded model from {}".format(model_file))
+
+# evaluate log-likelihoods on re-loaded model
+train_ll = EinsumNetwork.eval_loglikelihood_batched(einet, train_x, batch_size=batch_size)
+valid_ll = EinsumNetwork.eval_loglikelihood_batched(einet, valid_x, batch_size=batch_size)
+test_ll = EinsumNetwork.eval_loglikelihood_batched(einet, test_x, batch_size=batch_size)
+print()
+print("Log-likelihoods before saving --- train LL {}   valid LL {}   test LL {}".format(
+        train_ll / train_N,
+        valid_ll / valid_N,
+        test_ll / test_N))
+print("Log-likelihoods after saving  --- train LL {}   valid LL {}   test LL {}".format(
+        train_ll / train_N,
+        valid_ll / valid_N,
+        test_ll / test_N))

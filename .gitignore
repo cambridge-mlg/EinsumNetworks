@@ -4,5 +4,7 @@ src/.idea
 src/scribble*
 venv
 results
+demo_results
 samples
+auxiliary
 __pycache__

@@ -211,12 +211,14 @@ def maybe_download_svhn():
         maybe_download('../data/svhn', 'http://ufldl.stanford.edu/housenumbers/', file)
 
 
-def load_svhn(data_dir, dtype=np.uint8):
+def load_svhn(dtype=np.uint8):
     """
     Load the SVHN dataset.
     """
 
     maybe_download_svhn()
+
+    data_dir = '../data/svhn'
 
     data_train = sp.loadmat(os.path.join(data_dir, "train_32x32.mat"))
     data_test = sp.loadmat(os.path.join(data_dir, "test_32x32.mat"))
