@@ -11,7 +11,7 @@ class Args(object):
               RVs.
     num_input_distributions: number of distributions per input region (K in the paper).
     num_sums: number of sum nodes per internal region (K in the paper).
-    num_classes: number of outputs of the SPN.
+    num_classes: number of outputs of the PC.
     exponential_family: which exponential family to use; (sub-class ExponentialFamilyTensor).
     exponential_family_args: arguments for the exponential family, e.g. trial-number N for Binomial.
     use_em: determines if the internal em algorithm shall be used; otherwise you might use e.g. SGD.
@@ -261,7 +261,7 @@ def log_likelihoods(outputs, labels=None):
     return lls
 
 
-def eval_accuracy_batched(spn, x, labels, batch_size):
+def eval_accuracy_batched(einet, x, labels, batch_size):
     """Computes accuracy in batched way."""
     with torch.no_grad():
         idx_batches = torch.arange(0, x.shape[0], dtype=torch.int64, device=x.device).split(batch_size)
@@ -269,13 +269,13 @@ def eval_accuracy_batched(spn, x, labels, batch_size):
         for batch_count, idx in enumerate(idx_batches):
             batch_x = x[idx, :]
             batch_labels = labels[idx]
-            outputs = spn.forward(batch_x)
+            outputs = einet.forward(batch_x)
             _, pred = outputs.max(1)
             n_correct += torch.sum(pred == batch_labels)
         return (n_correct.float() / x.shape[0]).item()
 
 
-def eval_loglikelihood_batched(spn, x, labels=None, batch_size=100):
+def eval_loglikelihood_batched(einet, x, labels=None, batch_size=100):
     """Computes log-likelihood in batched way."""
     with torch.no_grad():
         idx_batches = torch.arange(0, x.shape[0], dtype=torch.int64, device=x.device).split(batch_size)
@@ -286,7 +286,7 @@ def eval_loglikelihood_batched(spn, x, labels=None, batch_size=100):
                 batch_labels = labels[idx]
             else:
                 batch_labels = None
-            outputs = spn(batch_x)
+            outputs = einet(batch_x)
             ll_sample = log_likelihoods(outputs, batch_labels)
             ll_total += ll_sample.sum().item()
         return ll_total

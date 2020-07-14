@@ -7,6 +7,15 @@ import utils
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+demo_text = """
+This demo loads (fashion) mnist and quickly trains an EiNet for some epochs. 
+
+There are some parameters to play with, as for example which exponential family you want 
+to use, which classes you want to pick, and structural parameters. Then an EiNet is trained, 
+the log-likelihoods reported and some (conditional and unconditional) samples are produced.
+"""
+print(demo_text)
+
 ############################################################################
 fashion_mnist = False
 
@@ -15,6 +24,7 @@ exponential_family = EinsumNetwork.BinomialArray
 # exponential_family = EinsumNetwork.NormalArray
 
 classes = [7]
+# classes = [2, 3, 5, 7]
 # classes = None
 
 K = 10
