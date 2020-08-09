@@ -168,14 +168,26 @@ class ExponentialFamilyArray(torch.nn.Module):
         """
         Helper function for sampling the exponential family.
 
+        :param num_samples: number of samples to be produced
+        :param params: expectation parameters (phi) of the exponential family, of shape
+                       (self.num_var, *self.array_shape, self.num_stats)
         :param kwargs: keyword arguments
-               The implemented function should at least accept arguments
-                   num_samples (int): number of samples to produce
-                   params (Tensor): expectation parameters (phi) of the exponential family, of shape
-                                    (self.num_var, *self.array_shape, self.num_stats)
                Depending on the implementation, kwargs can also contain further arguments.
         :return: i.i.d. samples of the exponential family (Tensor).
                  Should be of shape (num_samples, self.num_var, self.num_dims, *self.array_shape)
+        """
+        raise NotImplementedError
+
+    def _argmax(self, params, **kwargs):
+        """
+        Helper function for getting the argmax of the exponential family.
+
+        :param params: expectation parameters (phi) of the exponential family, of shape
+                       (self.num_var, *self.array_shape, self.num_stats)
+        :param kwargs: keyword arguments
+               Depending on the implementation, kwargs can also contain further arguments.
+        :return: argmax of the exponential family (Tensor).
+                 Should be of shape (self.num_var, self.num_dims, *self.array_shape)
         """
         raise NotImplementedError
 
@@ -278,6 +290,14 @@ class ExponentialFamilyArray(torch.nn.Module):
                 params = self.reparam(self.params)
         return self._sample(num_samples, params, **kwargs)
 
+    def argmax(self, **kwargs):
+        if self._use_em:
+            params = self.params
+        else:
+            with torch.no_grad():
+                params = self.reparam(self.params)
+        return self._argmax(params, **kwargs)
+
     def em_set_hyperparams(self, online_em_frequency, online_em_stepsize, purge=True):
         """Set new setting for online EM."""
         if purge:
@@ -356,6 +376,12 @@ class ExponentialFamilyArray(torch.nn.Module):
         return self.marginalization_idx
 
 
+def shift_last_axis_to(x, i):
+    """This takes the last axis of tensor x and inserts it at position i"""
+    num_axes = len(x.shape)
+    return x.permute(tuple(range(i)) + (num_axes - 1,) + tuple(range(i, num_axes - 1)))
+
+
 class NormalArray(ExponentialFamilyArray):
     """Implementation of Normal distribution."""
 
@@ -417,13 +443,12 @@ class NormalArray(ExponentialFamilyArray):
             std = torch.sqrt(var)
             shape = (num_samples,) + mu.shape
             samples = mu.unsqueeze(0) + std_correction * std.unsqueeze(0) * torch.randn(shape, dtype=mu.dtype, device=mu.device)
+            return shift_last_axis_to(samples, 2)
 
-            # return shape need to be (num_samples, self.num_var, self.num_dims, *self.array_shape)
-            # this takes the last axis, corresponding to dim, and inserts it at position 2
-            num_axes = len(samples.shape)
-            samples = samples.permute((0, 1, num_axes - 1) + tuple(range(2, num_axes - 1)))
-
-            return samples
+    def _argmax(self, params, **kwargs):
+        with torch.no_grad():
+            mu = params[..., 0:self.num_dims]
+            return shift_last_axis_to(mu, 1)
 
 
 class BinomialArray(ExponentialFamilyArray):
@@ -482,13 +507,13 @@ class BinomialArray(ExponentialFamilyArray):
             else:
                 rand = torch.rand((num_samples,) + params.shape + (int(self.N),), device=params.device)
                 samples = torch.sum(rand < params.unsqueeze(-1), -1).type(dtype)
+            return shift_last_axis_to(samples, 2)
 
-            # return shape need to be (num_samples, self.num_var, self.num_dims, *self.array_shape)
-            # this takes the last axis, corresponding to dim, and inserts it at position 2
-            num_axes = len(samples.shape)
-            samples = samples.permute((0, 1, num_axes - 1) + tuple(range(2, num_axes - 1)))
-
-            return samples
+    def _argmax(self, params, **kwargs):
+        with torch.no_grad():
+            params = params / self.N
+            mode = torch.clamp(torch.floor((self.N + 1.) * params), 0.0, self.N)
+            return shift_last_axis_to(mode, 1)
 
 
 class CategoricalArray(ExponentialFamilyArray):
@@ -543,10 +568,10 @@ class CategoricalArray(ExponentialFamilyArray):
             cum_sum = torch.cumsum(dist[..., 0:-1], -1)
             rand = torch.rand((num_samples,) + cum_sum.shape[0:-1] + (1,), device=cum_sum.device)
             samples = torch.sum(rand > cum_sum, -1).type(dtype)
+            return shift_last_axis_to(samples, 2)
 
-            # return shape need to be (num_samples, self.num_var, self.num_dims, *self.array_shape)
-            # this takes the last axis, corresponding to dim, and inserts it at position 2
-            num_axes = len(samples.shape)
-            samples = samples.permute((0, 1, num_axes - 1) + tuple(range(2, num_axes - 1)))
-
-            return samples
+    def _argmax(self, params, dtype=torch.float32):
+        with torch.no_grad():
+            dist = params.reshape(self.num_var, *self.array_shape, self.num_dims, self.K)
+            mode = torch.argmax(dist, -1)
+            return shift_last_axis_to(mode, 1)
