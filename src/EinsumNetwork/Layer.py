@@ -44,9 +44,9 @@ class Layer(torch.nn.Module):
         """
         raise NotImplementedError
 
-    def sample(self, *args, **kwargs):
+    def backtrack(self, *args, **kwargs):
         """
-        Defines routines for sampling the EiNet.
+        Defines routines for backtracking in EiNets, for sampling and MPE approximation.
 
         :param args:
         :param kwargs:

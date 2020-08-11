@@ -89,35 +89,46 @@ class FactorizedLeafLayer(Layer):
         """
         self.prob = torch.einsum('bxir,xro->bio', self.ef_array(x), self.scope_tensor)
 
-    def sample(self, dist_idx, node_idx, **kwargs):
+    def backtrack(self, dist_idx, node_idx, mode='sample', **kwargs):
         """
-        Sample mechanism for EiNets. Below N is the number of samples which shall be produced.
+        Backtrackng mechanism for EiNets.
 
         :param dist_idx: list of N indices into the distribution vectors, which shall be sampled.
         :param node_idx: list of N indices into the leaves, which shall be sampled.
+        :param mode: 'sample' or 'argmax'; for sampling or MPE approximation, respectively.
         :param kwargs: keyword arguments
         :return: samples (Tensor). Of shape (N, self.num_var, self.num_dims).
         """
         if len(dist_idx) != len(node_idx):
             raise AssertionError("Invalid input.")
 
-        N = len(dist_idx)
-        ef_samples = self.ef_array.sample(N, **kwargs)
-
         with torch.no_grad():
-            samples = torch.zeros((N, self.num_var, self.num_dims), device=ef_samples.device, dtype=ef_samples.dtype)
+            N = len(dist_idx)
+            if mode == 'sample':
+                ef_values = self.ef_array.sample(N, **kwargs)
+            elif mode == 'argmax':
+                ef_values = self.ef_array.argmax(**kwargs)
+            else:
+                raise AssertionError('Unknown backtracking mode {}'.format(mode))
+
+            values = torch.zeros((N, self.num_var, self.num_dims), device=ef_values.device, dtype=ef_values.dtype)
 
             for n in range(N):
-                sample = torch.zeros(self.num_var, self.num_dims, device=ef_samples.device, dtype=ef_samples.dtype)
+                cur_value = torch.zeros(self.num_var, self.num_dims, device=ef_values.device, dtype=ef_values.dtype)
                 if len(dist_idx[n]) != len(node_idx[n]):
                     raise AssertionError("Invalid input.")
                 for c, k in enumerate(node_idx[n]):
                     scope = list(self.nodes[k].scope)
                     rep = self.nodes[k].einet_address.replica_idx
-                    sample[scope, :] = ef_samples[n, scope, :, dist_idx[n][c], rep]
-                samples[n, :, :] = sample
+                    if mode == 'sample':
+                        cur_value[scope, :] = ef_values[n, scope, :, dist_idx[n][c], rep]
+                    elif mode == 'argmax':
+                        cur_value[scope, :] = ef_values[scope, :, dist_idx[n][c], rep]
+                    else:
+                        raise AssertionError('Unknown backtracking mode {}'.format(mode))
+                values[n, :, :] = cur_value
 
-            return samples
+            return values
 
     def em_set_hyperparams(self, online_em_frequency, online_em_stepsize, purge=True):
         self.ef_array.em_set_hyperparams(online_em_frequency, online_em_stepsize, purge)

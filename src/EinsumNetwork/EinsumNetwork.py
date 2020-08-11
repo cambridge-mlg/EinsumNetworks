@@ -150,14 +150,9 @@ class EinsumNetwork(torch.nn.Module):
             einsum_layer()
         return self.einet_layers[-1].prob[:, :, 0]
 
-    def sample(self, num_samples=1, class_idx=0, x=None, **kwargs):
+    def backtrack(self, num_samples=1, class_idx=0, x=None, mode='sampling', **kwargs):
         """
-        Draw samples.
-
-        There are two modes: unconditional sampling (x is None) and conditional sampling (x not is None).
-        Unconditional sampling: draw num_samples from the PC.
-        Conditional sampling: evaluate the evidence provided by x (potentially some RVs marginalized), and draw samples
-                              conditioned on this evidence. Note that num_samples has no effect in this case.
+        Perform backtracking; for sampling or MPE approximation.
         """
 
         sample_idx = {l: [] for l in self.einet_layers}
@@ -181,10 +176,12 @@ class EinsumNetwork(torch.nn.Module):
 
             if type(layer) == EinsumLayer:
 
-                ret = layer.sample(dist_idx[layer],
-                                   reg_idx[layer],
-                                   sample_idx[layer],
-                                   use_evidence=(x is not None), **kwargs)
+                ret = layer.backtrack(dist_idx[layer],
+                                      reg_idx[layer],
+                                      sample_idx[layer],
+                                      use_evidence=(x is not None),
+                                      mode=mode,
+                                      **kwargs)
                 dist_idx_left, dist_idx_right, reg_idx_left, reg_idx_right, layers_left, layers_right = ret
 
                 for c, layer_left in enumerate(layers_left):
@@ -199,10 +196,12 @@ class EinsumNetwork(torch.nn.Module):
 
             elif type(layer) == EinsumMixingLayer:
 
-                ret = layer.sample(dist_idx[layer],
-                                   reg_idx[layer],
-                                   sample_idx[layer],
-                                   use_evidence=(x is not None), **kwargs)
+                ret = layer.backtrack(dist_idx[layer],
+                                      reg_idx[layer],
+                                      sample_idx[layer],
+                                      use_evidence=(x is not None),
+                                      mode=mode,
+                                      **kwargs)
                 dist_idx_out, reg_idx_out, layers_out = ret
 
                 for c, layer_out in enumerate(layers_out):
@@ -222,7 +221,7 @@ class EinsumNetwork(torch.nn.Module):
                     dist_idx_sample.append([dist_idx[layer][c] for c, i in enumerate(sample_idx[layer]) if i == sidx])
                     reg_idx_sample.append([reg_idx[layer][c] for c, i in enumerate(sample_idx[layer]) if i == sidx])
 
-                samples = layer.sample(dist_idx_sample, reg_idx_sample, **kwargs)
+                samples = layer.backtrack(dist_idx_sample, reg_idx_sample, mode=mode, **kwargs)
 
                 if self.args.num_dims == 1:
                     samples = torch.squeeze(samples, 2)
@@ -233,6 +232,12 @@ class EinsumNetwork(torch.nn.Module):
                     samples[:, keep_idx] = x[:, keep_idx]
 
                 return samples
+
+    def sample(self, num_samples=1, class_idx=0, x=None, **kwargs):
+        return self.backtrack(num_samples=num_samples, class_idx=class_idx, x=x, mode='sample', **kwargs)
+
+    def mpe(self, num_samples=1, class_idx=0, x=None, **kwargs):
+        return self.backtrack(num_samples=num_samples, class_idx=class_idx, x=x, mode='argmax', **kwargs)
 
     def em_set_hyperparams(self, online_em_frequency, online_em_stepsize, purge=True):
         for l in self.einet_layers:

@@ -509,10 +509,10 @@ class BinomialArray(ExponentialFamilyArray):
                 samples = torch.sum(rand < params.unsqueeze(-1), -1).type(dtype)
             return shift_last_axis_to(samples, 2)
 
-    def _argmax(self, params, **kwargs):
+    def _argmax(self, params, dtype=torch.float32):
         with torch.no_grad():
             params = params / self.N
-            mode = torch.clamp(torch.floor((self.N + 1.) * params), 0.0, self.N)
+            mode = torch.clamp(torch.floor((self.N + 1.) * params), 0.0, self.N).type(dtype)
             return shift_last_axis_to(mode, 1)
 
 
@@ -573,5 +573,5 @@ class CategoricalArray(ExponentialFamilyArray):
     def _argmax(self, params, dtype=torch.float32):
         with torch.no_grad():
             dist = params.reshape(self.num_var, *self.array_shape, self.num_dims, self.K)
-            mode = torch.argmax(dist, -1)
+            mode = torch.argmax(dist, -1).type(dtype)
             return shift_last_axis_to(mode, 1)

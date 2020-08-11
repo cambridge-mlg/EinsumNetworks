@@ -12,7 +12,8 @@ This demo loads (fashion) mnist and quickly trains an EiNet for some epochs.
 
 There are some parameters to play with, as for example which exponential family you want 
 to use, which classes you want to pick, and structural parameters. Then an EiNet is trained, 
-the log-likelihoods reported and some (conditional and unconditional) samples are produced.
+the log-likelihoods reported, some (conditional and unconditional) samples are produced, and
+approximate MPE reconstructions are generated. 
 """
 print(demo_text)
 
@@ -188,6 +189,25 @@ utils.save_image_stack(samples, 5, 5, os.path.join(samples_dir, "sample_reconstr
 ground_truth = test_x[0:25, :].cpu().numpy()
 ground_truth = ground_truth.reshape((-1, 28, 28))
 utils.save_image_stack(ground_truth, 5, 5, os.path.join(samples_dir, "ground_truth.png"), margin_gray_val=0.)
+
+###############################
+# perform mpe reconstructions #
+###############################
+
+mpe = einet.mpe().cpu().numpy()
+mpe = mpe.reshape((1, 28, 28))
+utils.save_image_stack(mpe, 1, 1, os.path.join(samples_dir, "mpe.png"), margin_gray_val=0.)
+
+# Draw conditional samples for reconstruction
+image_scope = np.array(range(height * width)).reshape(height, width)
+marginalize_idx = list(image_scope[0:round(height/2), :].reshape(-1))
+keep_idx = [i for i in range(width*height) if i not in marginalize_idx]
+einet.set_marginalization_idx(marginalize_idx)
+
+mpe_reconstruction = einet.mpe(x=test_x[0:25, :]).cpu().numpy()
+mpe_reconstruction = mpe_reconstruction.squeeze()
+mpe_reconstruction = mpe_reconstruction.reshape((-1, 28, 28))
+utils.save_image_stack(mpe_reconstruction, 5, 5, os.path.join(samples_dir, "mpe_reconstruction.png"), margin_gray_val=0.)
 
 print()
 print('Saved samples to {}'.format(samples_dir))

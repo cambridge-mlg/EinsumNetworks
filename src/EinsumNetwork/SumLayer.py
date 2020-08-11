@@ -53,9 +53,9 @@ class SumLayer(Layer):
         """
         raise NotImplementedError
 
-    def _sample(self, dist_idx, node_idx, sample_idx, params, use_evidence=False, **kwargs):
+    def _backtrack(self, dist_idx, node_idx, sample_idx, params, use_evidence=False, mode='sample', **kwargs):
         """
-        Helper routine to implement EiNet sampling.
+        Helper routine to implement EiNet backtracking, for sampling or MPE approximation.
 
         dist_idx, node_idx, sample_idx are lists of indices, all of the same length.
 
@@ -66,6 +66,7 @@ class SumLayer(Layer):
                            sampling process.
         :param params: sum-weights to use (Tensor).
         :param use_evidence: incorporate the bottom-up evidence (Bool)? For conditional sampling.
+        :param mode: 'sample' or 'argmax'; for sampling or MPE approximation, respectively.
         :param kwargs: Additional keyword arguments.
         :return: depends on particular implementation.
         """
@@ -124,16 +125,19 @@ class SumLayer(Layer):
             params = reparam
         self._forward(params)
 
-    def sample(self, dist_idx, node_idx, sample_idx, use_evidence=False, **kwargs):
+    def backtrack(self, dist_idx, node_idx, sample_idx, use_evidence=False, mode='sample', **kwargs):
         """
-        Helper routine for sampling EiNets, see _sample(...) for details.
+        Helper routine for backtracking in EiNets, see _sample(...) for details.
         """
+        if mode != 'sample' and mode != 'argmax':
+            raise AssertionError('Unknown backtracking mode {}'.format(mode))
+
         if self._use_em:
             params = self.params
         else:
             with torch.no_grad():
                 params = self.reparam(self.params)
-        return self._sample(dist_idx, node_idx, sample_idx, params, use_evidence, **kwargs)
+        return self._backtrack(dist_idx, node_idx, sample_idx, params, use_evidence, mode, **kwargs)
 
     def em_purge(self):
         """ Discard em statistics."""
@@ -398,10 +402,9 @@ class EinsumLayer(SumLayer):
 
         self.prob = prob
 
-
-    def _sample(self, dist_idx, node_idx, sample_idx, params, use_evidence=False, **kwargs):
+    def _backtrack(self, dist_idx, node_idx, sample_idx, params, use_evidence=False, mode='sample', **kwargs):
         """
-        Helper routine for drawing samples.
+        Helper routine for backtracking in EiNets.
 
         Recall that each layer in an EiNet implements a tensor of log-densities of shape (see doc for EinsumNetwork)
             (batch_size, vector_length, num_nodes).
@@ -415,6 +418,7 @@ class EinsumLayer(SumLayer):
         :param sample_idx: global identifier of the sample to be produced
         :param params: parameters to be used for this layer
         :param use_evidence: using evidence form bottom-up pass? For conditional sampling.
+        :param mode: 'sample' or 'argmax'; for sampling or MPE approximation, respectively.
         :param kwargs: other keyword arguments
         :return: selected layers and indices below
         """
@@ -432,7 +436,11 @@ class EinsumLayer(SumLayer):
                 posterior = posterior.permute(2, 0, 1)
                 posterior = posterior.reshape(posterior.shape[0], -1)
 
-            idx = sample_matrix_categorical(posterior)
+            if mode == 'sample':
+                idx = sample_matrix_categorical(posterior)
+            elif mode == 'argmax':
+                idx = torch.argmax(posterior, -1)
+
             dist_idx_right = idx % self.num_input_dist
             dist_idx_left = idx // self.num_input_dist
             node_idx_left = [self.inputs[i][0].einet_address.idx for i in node_idx]
@@ -539,8 +547,8 @@ class EinsumMixingLayer(SumLayer):
 
         self.prob = torch.log(output) + max_p[:, :, :, 0]
 
-    def _sample(self, dist_idx, node_idx, sample_idx, params, use_evidence=False, **kwargs):
-        """Helper routine for drawing samples."""
+    def _backtrack(self, dist_idx, node_idx, sample_idx, params, use_evidence=False, mode='sample', **kwargs):
+        """Helper routine for backtracking in EiNets."""
         with torch.no_grad():
             if use_evidence:
                 log_prior = torch.log(params[dist_idx, node_idx, :])
@@ -548,7 +556,11 @@ class EinsumMixingLayer(SumLayer):
                 posterior = torch.exp(log_posterior - torch.logsumexp(log_posterior, 1, keepdim=True))
             else:
                 posterior = params[dist_idx, node_idx, :]
-            idx = sample_matrix_categorical(posterior)
+
+            if mode == 'sample':
+                idx = sample_matrix_categorical(posterior)
+            elif mode == 'argmax':
+                idx = torch.argmax(posterior, -1)
             dist_idx_out = dist_idx
             node_idx_out = [self.mixing_component_idx[self.nodes[i]][idx[c]] for c, i in enumerate(node_idx)]
             layers_out = [self.layers[0]] * len(node_idx)
