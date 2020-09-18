@@ -34,10 +34,10 @@ class SumLayer(Layer):
         self.online_em_stepsize = None
         self._online_em_counter = 0
 
-        # if EM is not used, we reparametrize
-        self.reparam = None
-        if not self._use_em:
-            self.reparam = self.reparam_function()
+        # # if EM is not used, we reparametrize
+        # self.reparam = None
+        # if not self._use_em:
+        #     self.reparam = self.reparam_function()
 
     # --------------------------------------------------------------------------------
     # The following functions need to be implemented in derived classes.
@@ -193,27 +193,50 @@ class SumLayer(Layer):
             self.params.data = self.params / (self.params.sum(self.normalization_dims, keepdim=True))
             self.params.grad = None
 
-    def reparam_function(self):
+    def reparam(self, params_in):
         """
         Reparametrization function, transforming unconstrained parameters into valid sum-weight
         (non-negative, normalized).
+
+        :params_in params: unconstrained parameters (Tensor) to be projected
+        :return: re-parametrized parameters.
         """
-        def reparam(params_in):
-            other_dims = tuple(i for i in range(len(params_in.shape)) if i not in self.normalization_dims)
+        other_dims = tuple(i for i in range(len(params_in.shape)) if i not in self.normalization_dims)
 
-            permutation = other_dims + self.normalization_dims
-            unpermutation = tuple(c for i in range(len(permutation)) for c, j in enumerate(permutation) if j == i)
+        permutation = other_dims + self.normalization_dims
+        unpermutation = tuple(c for i in range(len(permutation)) for c, j in enumerate(permutation) if j == i)
 
-            numel = functools.reduce(lambda x, y: x * y, [params_in.shape[i] for i in self.normalization_dims])
+        numel = functools.reduce(lambda x, y: x * y, [params_in.shape[i] for i in self.normalization_dims])
 
-            other_shape = tuple(params_in.shape[i] for i in other_dims)
-            params_in = params_in.permute(permutation)
-            orig_shape = params_in.shape
-            params_in = params_in.reshape(other_shape + (numel,))
-            out = softmax(params_in, -1)
-            out = out.reshape(orig_shape).permute(unpermutation)
-            return out
-        return reparam
+        other_shape = tuple(params_in.shape[i] for i in other_dims)
+        params_in = params_in.permute(permutation)
+        orig_shape = params_in.shape
+        params_in = params_in.reshape(other_shape + (numel,))
+        out = softmax(params_in, -1)
+        out = out.reshape(orig_shape).permute(unpermutation)
+        return out
+
+    # def reparam_function(self):
+    #     """
+    #     Reparametrization function, transforming unconstrained parameters into valid sum-weight
+    #     (non-negative, normalized).
+    #     """
+    #     def reparam(params_in):
+    #         other_dims = tuple(i for i in range(len(params_in.shape)) if i not in self.normalization_dims)
+
+    #         permutation = other_dims + self.normalization_dims
+    #         unpermutation = tuple(c for i in range(len(permutation)) for c, j in enumerate(permutation) if j == i)
+
+    #         numel = functools.reduce(lambda x, y: x * y, [params_in.shape[i] for i in self.normalization_dims])
+
+    #         other_shape = tuple(params_in.shape[i] for i in other_dims)
+    #         params_in = params_in.permute(permutation)
+    #         orig_shape = params_in.shape
+    #         params_in = params_in.reshape(other_shape + (numel,))
+    #         out = softmax(params_in, -1)
+    #         out = out.reshape(orig_shape).permute(unpermutation)
+    #         return out
+    #     return reparam
 
     def project_params(self, params):
         """Currently not required."""
