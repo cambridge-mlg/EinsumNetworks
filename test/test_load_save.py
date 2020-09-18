@@ -138,42 +138,22 @@ def load_einet_state(model_path,
         
     return einet, graph
 
+def check_einets_eq(e1, e2):
+    assert len(e1.einet_layers) == len(e2.einet_layers)
+    for l, l_p  in zip(e1.einet_layers, e2.einet_layers):
+        if hasattr(l, "params"):
+            assert torch.all(torch.eq(l.params, l_p.params))
+
 
 classes = [7]
-# classes = [2, 3, 5, 7]
-# classes = None
-
-# K = 10
-
-# structure = 'poon-domingos'
-# structure = 'binary-trees'
-
-# 'poon-domingos'
-# pd_num_pieces = [4]
-# pd_num_pieces = [7]
-# pd_num_pieces = [7, 28]
-# width = 28
-# height = 28
-
-# 'binary-trees'
-# depth = 3
-# num_repetitions = 20
-
 num_epochs = 5
 batch_size = 100
-# online_em_frequency = 1
-# online_em_stepsize = 0.05
+
 ############################################################################
 
 
 # get data
 train_x, train_labels, test_x, test_labels = datasets.load_mnist()
-
-# if not exponential_family != EinsumNetwork.NormalArray:
-#     train_x /= 255.
-#     test_x /= 255.
-#     train_x -= .5
-#     test_x -= .5
 
 # validation split
 valid_x = train_x[-10000:, :]
@@ -232,7 +212,7 @@ print("pre-train   train LL {}   valid LL {}   test LL {}".format(
 
 ######################################
 # Save untrained
-
+#
 # out_path = './saved-pretrained-state'
 # save_einet_state(einet, rg, out_path=out_path)
 # einet_p, graph_p = load_einet_state(out_path, graph=rg,
@@ -250,6 +230,9 @@ save_einet(einet, rg, out_path=out_path)
 einet_p, graph_p = load_einet(out_path)
 
 
+##### check same model
+check_einets_eq(einet, einet_p)
+print("Einets equal")
 
 ##### evaluate
 einet_p.eval()
@@ -312,6 +295,10 @@ print("post-training (before saving) --- train LL {}   valid LL {}   test LL {}"
 
 save_einet(einet, rg, out_path=out_path)
 einet_p, graph_p = load_einet(out_path)
+
+##### check same model
+check_einets_eq(einet, einet_p)
+print("Einets equal")
 
 ##### evaluate
 einet_p.eval()
