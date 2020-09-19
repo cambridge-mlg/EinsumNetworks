@@ -172,6 +172,11 @@ def get_distribution_nodes_by_scope(graph, scope):
     return [n for n in graph.nodes if type(n) == DistributionVector and n.scope == scope]
 
 
+def get_product_nodes_by_scope(graph, scope):
+    scope = tuple(sorted(scope))
+    return [n for n in graph.nodes if type(n) == Product and n.scope == scope]
+
+
 def partition_on_node(graph, node, scope_partition):
     """
     Helper routine to extend the graph.
@@ -189,9 +194,32 @@ def partition_on_node(graph, node, scope_partition):
     if not check_if_is_partition(node.scope, scope_partition):
         raise AssertionError("Not a partition.")
 
+    #
+    # Create or retrieve node
+    nodes = get_distribution_nodes_by_scope(graph, node.scope)
+    assert len(nodes) <= 1
+    if nodes:
+        node = nodes[0]
+
+    #
+    # Create new partition
     product = Product(node.scope)
     graph.add_edge(node, product)
-    product_children = [DistributionVector(scope) for scope in scope_partition]
+
+    #
+    # create or retrieve children
+    product_children = []
+    for scope in scope_partition:
+        children = get_distribution_nodes_by_scope(graph, scope)
+        assert len(children) <= 1
+        if children:
+            d = children[0]
+        else:
+            d = DistributionVector(scope)
+        product_children.append(d)
+
+    #
+    # connecting children regions to partition parent
     for c in product_children:
         graph.add_edge(product, c)
 
@@ -266,6 +294,40 @@ def random_binary_trees(num_var, depth, num_repetitions):
             for node in cur_nodes:
                 _, cur_child_nodes = randomly_partition_on_node(graph, node, 2)
                 child_nodes += cur_child_nodes
+            cur_nodes = child_nodes
+        for node in cur_nodes:
+            node.einet_address.replica_idx = repetition
+
+    return graph
+
+def random_dags(num_var, depth, num_repetitions, num_partitions):
+    """
+    Generate a PC graph via several random DAGs -- RAT-SPNs.
+    This function might subsume random_binary_trees with num_partitions=1
+    
+    See
+        Random sum-product networks: A simple but effective approach to probabilistic deep learning
+        Robert Peharz, Antonio Vergari, Karl Stelzner, Alejandro Molina, Xiaoting Shao, Martin Trapp, Kristian Kersting,
+        Zoubin Ghahramani
+        UAI 2019
+
+    :param num_var: number of random variables (int)
+    :param depth: splitting depth (int)
+    :param num_repetitions: number of repetitions (int)
+    :return: generated graph (DiGraph)
+    """
+    graph = nx.DiGraph()
+    root = DistributionVector(range(num_var))
+    graph.add_node(root)
+
+    for repetition in range(num_repetitions):
+        cur_nodes = {root}
+        for d in range(depth):
+            child_nodes = set()
+            for node in cur_nodes:
+                for k in range(num_partitions):
+                    _, cur_child_nodes = randomly_partition_on_node(graph, node, 2)
+                    child_nodes = child_nodes.union(cur_child_nodes)
             cur_nodes = child_nodes
         for node in cur_nodes:
             node.einet_address.replica_idx = repetition
@@ -596,6 +658,20 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
 
+    graph = random_dags(7, 2, 3, 2)
+    _, msg = check_graph(graph)
+    print(msg)
+
+    plt.figure(1)
+    plt.clf()
+    plt.title("Random dags (RAT-SPN)")
+    print(graph)
+    plot_graph(graph)
+    plt.show()
+
+    print()
+
+    
     graph = random_binary_trees(7, 2, 3)
     _, msg = check_graph(graph)
     print(msg)
