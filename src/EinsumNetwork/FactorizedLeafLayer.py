@@ -145,8 +145,8 @@ class FactorizedLeafLayer(Layer):
     def project_params(self, params):
         self.ef_array.project_params(params)
 
-    def reparam_function(self):
-        return self.ef_array.reparam_function()
+    def reparam(self, params):
+        return self.ef_array.reparam(params)
 
     # --------------------------------------------------------------------------------
 

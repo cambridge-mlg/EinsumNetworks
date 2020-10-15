@@ -75,12 +75,6 @@ class ExponentialFamilyArray(torch.nn.Module):
         self._online_em_stepsize = None
         self._online_em_counter = 0
 
-        # if em is switched off, we re-parametrize the expectation parameters
-        # self.reparam holds the function object for this task
-        self.reparam = None
-        if not self._use_em:
-            self.reparam = self.reparam_function()
-
     # --------------------------------------------------------------------------------
     # The following functions need to be implemented to specify an exponential family.
 
@@ -151,16 +145,17 @@ class ExponentialFamilyArray(torch.nn.Module):
         """
         raise NotImplementedError
 
-    def reparam_function(self):
+    def reparam(self, params):
         """
         Re-parameterize parameters, in order that they stay in their constrained domain.
 
         When we are not using the EM, we need to transform unconstrained (real-valued) parameters to the constrained set
-        of the expectation parameter. This function should return such a function (i.e. the return value should not be
+        of the expectation parameter.
+        This function should return such a function (i.e. the return value should not be
         a projection, but a function which does the projection).
 
-        :return: function object f which takes as input unconstrained parameters (Tensor) and returns re-parametrized
-                 parameters.
+        :param params: unconstrained parameters (Tensor) to be projected
+        :return: re-parametrized parameters.
         """
         raise NotImplementedError
 
@@ -406,12 +401,10 @@ class NormalArray(ExponentialFamilyArray):
         phi_project[..., self.num_dims:] += mu2
         return phi_project
 
-    def reparam_function(self):
-        def reparam(params_in):
-            mu = params_in[..., 0:self.num_dims].clone()
-            var = self.min_var + torch.sigmoid(params_in[..., self.num_dims:]) * (self.max_var - self.min_var)
-            return torch.cat((mu, var + mu**2), -1)
-        return reparam
+    def reparam(self, params_in):
+        mu = params_in[..., 0:self.num_dims].clone()
+        var = self.min_var + torch.sigmoid(params_in[..., self.num_dims:]) * (self.max_var - self.min_var)
+        return torch.cat((mu, var + mu**2), -1)
 
     def sufficient_statistics(self, x):
         if len(x.shape) == 2:
@@ -465,10 +458,8 @@ class BinomialArray(ExponentialFamilyArray):
     def project_params(self, phi):
         return torch.clamp(phi, 0.0, self.N)
 
-    def reparam_function(self):
-        def reparam(params):
-            return torch.sigmoid(params * 0.1) * float(self.N)
-        return reparam
+    def reparam(self, params):
+        return torch.sigmoid(params * 0.1) * float(self.N)
 
     def sufficient_statistics(self, x):
         if len(x.shape) == 2:
@@ -534,10 +525,8 @@ class CategoricalArray(ExponentialFamilyArray):
         phi = phi / torch.sum(phi, -1, keepdim=True)
         return phi.reshape(self.num_var, *self.array_shape, self.num_dims * self.K)
 
-    def reparam_function(self):
-        def reparam(params):
-            return torch.nn.functional.softmax(params, -1)
-        return reparam
+    def reparam(self, params):
+        return torch.nn.functional.softmax(params, -1)
 
     def sufficient_statistics(self, x):
         if len(x.shape) == 2:
