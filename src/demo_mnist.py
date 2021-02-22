@@ -242,9 +242,9 @@ valid_ll = EinsumNetwork.eval_loglikelihood_batched(einet, valid_x, batch_size=b
 test_ll = EinsumNetwork.eval_loglikelihood_batched(einet, test_x, batch_size=batch_size)
 print()
 print("Log-likelihoods before saving --- train LL {}   valid LL {}   test LL {}".format(
-        train_ll / train_N,
-        valid_ll / valid_N,
-        test_ll / test_N))
+        train_ll_before / train_N,
+        valid_ll_before / valid_N,
+        test_ll_before / test_N))
 print("Log-likelihoods after saving  --- train LL {}   valid LL {}   test LL {}".format(
         train_ll / train_N,
         valid_ll / valid_N,
