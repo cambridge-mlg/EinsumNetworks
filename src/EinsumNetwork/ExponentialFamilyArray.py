@@ -532,7 +532,7 @@ class CategoricalArray(ExponentialFamilyArray):
         if len(x.shape) == 2:
             stats = one_hot(x.long(), self.K)
         elif len(x.shape) == 3:
-            stats = one_hot(x.long(), self.K).reshape(-1, self.num_dims * self.K)
+            stats = one_hot(x.long(), self.K).reshape(-1, self.num_var, self.num_dims * self.K)
         else:
             raise AssertionError("Input must be 2 or 3 dimensional tensor.")
         return stats
