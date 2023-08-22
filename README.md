@@ -2,9 +2,11 @@
 
 PyTorch implementation of Einsum Netwrks, proposed in 
 
+[
 R. Peharz, S. Lang, A. Vergari, K. Stelzner, A. Molina, M. Trapp, G. Van den Broeck, K. Kersting, Z. Ghahramani,
 **Einsum Networks: Fast and Scalable Learning of Tractable Probabilistic Circuits**,
 *ICML 2020*.
+](https://proceedings.mlr.press/v119/peharz20a/peharz20a.pdf)
 
 We are still about to clean the code and add some experiments, but the implementation is already fully there and ready to play.
 
